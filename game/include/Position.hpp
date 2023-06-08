@@ -16,10 +16,15 @@
  */
 #pragma once
 
-#include <cassert>
-#include <cmath>
 #include <iostream>
-#include <vector>
+
+class InvalidPositionFormatException : public std::exception {
+public:
+    const char* what() const throw() {
+        return "Invalid position format";
+    }
+};
+
 
 /**
  * @brief The Position class represents a position on the Othello game board.
@@ -48,27 +53,27 @@ public:
      * @brief Get the row of the position.
      * @return The row of the position.
      */
-    unsigned int getRow() const { return row; };
+    [[nodiscard]] unsigned int getRow() const { return row; };
 
     /**
      * @brief Get the column of the position.
      * @return The column of the position.
      */
-    unsigned int getCol() const { return col; };
+    [[nodiscard]] unsigned int getCol() const { return col; };
 
     /**
      * @brief Calculate the Euclidean distance between this and another position.
      * @param other The other position.
      * @return The Euclidean distance.
      */
-    double euclideanDistance(const Position& other) const;
+    [[nodiscard]] double euclideanDistance(const Position& other) const;
 
     /**
      * @brief Calculate the Manhattan distance between this and another position.
      * @param other The other position.
      * @return The Manhattan distance.
      */
-    double manhattanDistance(const Position& other) const;
+    [[nodiscard]] double manhattanDistance(const Position& other) const;
 
     /**
      * @brief Overloaded equality operator.

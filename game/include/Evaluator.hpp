@@ -39,8 +39,6 @@
 class Evaluator {
 
   public:
-    /** @brief Construct a new Evaluator object. */
-    Evaluator() = default;;
 
     /**
      * @brief Calculates the evaluation score for a given board position and player.
@@ -48,7 +46,7 @@ class Evaluator {
      * @param player The player's disc character ('X' or 'O').
      * @return The evaluation score.
      */
-    int get_Eval(const std::vector<std::vector<char>> &board, char player);
+    static int getEvaluation(const std::vector<std::vector<char>> &board, char player);
 
   private:
     BoardHelper bHelper;
@@ -61,7 +59,7 @@ class Evaluator {
      * @param board The current game board.
      * @return The game phase (EARLY_GAME, MID_GAME, or LATE_GAME).
      */
-     GamePhase getGamePhase(const std::vector<std::vector<char>> &board);
+    static GamePhase getGamePhase(const std::vector<std::vector<char>> &board);
 
     /**
      * @brief Evaluates the disc difference between the player and the opponent.
@@ -69,7 +67,7 @@ class Evaluator {
      * @param player The player's disc character ('X' or 'O').
      * @return The disc difference score.
      */
-     int evalDiscDiff(const std::vector<std::vector<char>> &board, char player);
+     static int evalDiscDiff(const std::vector<std::vector<char>> &board, char player);
 
     /**
      * @brief Evaluates the mobility of the player by calculating the number of possible moves.
@@ -77,7 +75,7 @@ class Evaluator {
      * @param player The player's disc character ('X' or 'O').
      * @return The mobility score.
      */
-     int evalMobility(const std::vector<std::vector<char>> &board, char player);
+    static int evalMobility(const std::vector<std::vector<char>> &board, char player);
 
     /**
      * @brief Evaluates the corner grab potential of the player.
@@ -85,7 +83,7 @@ class Evaluator {
      * @param player The player's disc character ('X' or 'O').
      * @return The corner grab score.
      */
-     int evalCorner(const std::vector<std::vector<char>> &board, char player);
+    static int evalCorner(const std::vector<std::vector<char>> &board, char player);
 
     /**
      * @brief Evaluates the parity of the game based on the remaining number of discs to be placed
@@ -93,7 +91,7 @@ class Evaluator {
      * @param board The current game board.
      * @return The parity score (-1 or 1).
      */
-    int evalParity(const std::vector<std::vector<char>> &board);
+    static int evalParity(const std::vector<std::vector<char>> &board);
 
     /**
      * @brief Evaluates the positional score of the player.
@@ -101,7 +99,7 @@ class Evaluator {
      * @param player The player's disc character ('X' or 'O').
      * @return The positional score.
      */
-    int evalPositionalScore(const std::vector<std::vector<char>> &board, char player);
+    static int evalPositionalScore(const std::vector<std::vector<char>> &board, char player);
 
     /**
      * @brief Evaluates the edge control of the player.
@@ -109,5 +107,5 @@ class Evaluator {
      * @param player The player's disc character ('X' or 'O').
      * @return The edge control score.
      */
-    int evalEdgeControl(const std::vector<std::vector<char>> &board, char player);
+    static int evalEdgeControl(const std::vector<std::vector<char>> &board, char player);
 };

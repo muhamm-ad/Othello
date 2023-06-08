@@ -19,13 +19,10 @@
 
 #include "BoardHelper.hpp"
 #include "Evaluator.hpp"
-#include <bits/stdc++.h>
 
 class Solver {
 
   public:
-    /** @brief Construct a new Solver object. */
-    Solver() = default;;
 
     /**
      * @brief Determines the best move for a player on a given game board state.
@@ -34,11 +31,9 @@ class Solver {
      * @param depth Depth of the search tree.
      * @return Position Best move for the player as a Position object.
      */
-     Position getPosition(const std::vector<std::vector<char>> &board, char player, int depth);
+    static Position getBestMovePosition(const std::vector<std::vector<char>> &board, char player, int depth);
 
   private:
-    BoardHelper boardHelper;
-    Evaluator evl;
 
     /**
      * @brief Minimax algorithm with alpha-beta pruning to determine the best move score.
@@ -51,6 +46,6 @@ class Solver {
      * @param beta Beta value for alpha-beta pruning.
      * @return int Score of the best move.
      */
-    int miniMaxAlphaBeta(std::vector<std::vector<char>> &node, char player, int depth, bool max,
-                         int alpha, int beta);
+    static int miniMaxAlphaBeta(
+            std::vector<std::vector<char>> &node, char player, int depth, bool max,int alpha, int beta);
 };

@@ -16,7 +16,6 @@
  */
 
 #pragma once
-#pragma once
 
 #include "Position.hpp"
 #include <iostream>
@@ -128,19 +127,19 @@ public:
      * @param player The current player.
      * @return A new board after the move.
      */
-    std::vector<std::vector<char>> getNewBoardAfterMove(const std::vector<std::vector<char>> &board,
-                                                        const Position &move, char player);
+    static std::vector<std::vector<char>> getBoardAfterMove(const std::vector<std::vector<char>> &board,
+                                                               const Position &move, char player);
 
 private:
     /**
      * @brief Returns the positions of the pieces to reverse after playing a move.
-     * @param o_board 2D char vector representing the original board.
+     * @param oBoard 2D char vector representing the original board.
      * @param player The current player.
      * @param pos The position of the move.
      * @return Vector of positions to reverse.
      */
     static std::vector<Position>
-    getReversePoints(std::vector<std::vector<char>> &o_board, char player, const Position &pos);
+    getReversePoints(std::vector<std::vector<char>> &oBoard, char player, const Position &pos);
 
     /** @brief Helper function to check in the up direction. */
     static std::vector<Position> checkUp(std::vector<std::vector<char>> &board, char player, const Position &pos);
