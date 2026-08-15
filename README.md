@@ -4,7 +4,7 @@ This project develops an AI to play Othello using the Minimax algorithm with Alp
 
 ## Interface
 
-Currently, the game interface is terminal-based. Players enter their moves in the terminal. A user-friendly GUI is in development.
+The game ships with an **SFML** graphical UI: click highlighted squares to place discs, watch the AI respond, and restart from the end-of-match overlay.
 
 ## Dependencies
 
@@ -12,6 +12,10 @@ Ensure you have a modern C++ compiler (supporting C++17) and `cmake` (version 3.
 
 - [CMake](https://cmake.org/download/) (minimum version 3.5)
 - Make: Pre-installed on Unix-like OS. For Windows, use `nmake` from Visual Studio or the [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2019).
+- [SFML 2.5+](https://www.sfml-dev.org/download.php) (`graphics`, `window`, `system`)
+  - Linux (Debian/Ubuntu): `sudo apt install libsfml-dev`
+  - macOS (Homebrew): `brew install sfml`
+  - Windows: install SFML and point CMake at it, or use vcpkg (`vcpkg install sfml`)
 
 ## Getting Started
 
@@ -37,7 +41,7 @@ Navigate to the project root directory and run the provided script:
   run.cmd
   ```
 
-The script automates building and running the game. After building, you can choose to run the game immediately, selecting 'X' or 'O' as your piece. 
+The script automates building and running the game. After building, you can choose to run the game immediately, selecting 'X' or 'O' as your piece.
 
 To run the game manually later, use:
 - For Linux:
@@ -50,6 +54,13 @@ To run the game manually later, use:
   ```
 
 Replace `<X|O>` with 'X' or 'O', depending on the piece you want to play with.
+(`X` is dark and moves first; `O` is light.)
+
+### Controls
+
+- **Left click** a glowing cell to play
+- **Esc** quit
+- **R** or the on-screen button to restart after a match
 
 ## Contributing
 
@@ -62,3 +73,5 @@ Contributions are welcome. Open issues or submit pull requests.
 ## License
 
 This project is licensed under the GNU General Public License V3.
+
+Fonts under `gameViewer/assets/fonts/` are DejaVu (Bitstream Vera-derived), redistributable under their own license.
