@@ -38,10 +38,8 @@ if "%~1"=="--clean" (
 REM Configure (safe to re-run every time; CMake only regenerates what's stale)
 REM Local dev builds default to Debug for faster iteration; set BUILD_TYPE=Release beforehand to override.
 if "%BUILD_TYPE%"=="" set "BUILD_TYPE=Debug"
-echo Configuring with CMake + Ninja (%BUILD_TYPE%)...
-cmake -S . -B build -G Ninja ^
-    -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
-    -DCMAKE_TOOLCHAIN_FILE="%workspace%\vcpkg\scripts\buildsystems\vcpkg.cmake"
+echo Configuring with CMake preset '%BUILD_TYPE%'...
+cmake --preset %BUILD_TYPE%
 if errorlevel 1 (
     echo CMake configure failed!
     exit /b 1
@@ -68,5 +66,5 @@ if /I "%answer%"=="n" (
     echo.
     build\Othello.exe
 )
- 
+
 endlocal

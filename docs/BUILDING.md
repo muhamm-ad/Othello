@@ -57,7 +57,7 @@ If something seems off (a stale cache, a half-finished configure), pass `--clean
 
 ```bash
 ./run.sh --clean      # Linux/macOS
-.\run.cmd --clean       # Windows
+.\run.cmd --clean     # Windows
 ```
 
 To run the game manually afterward:
@@ -78,11 +78,13 @@ On launch, pick a difficulty and whether you play as Black or White (Black moves
    - Windows: `vcpkg\bootstrap-vcpkg.bat`
    - Linux/macOS: `./vcpkg/bootstrap-vcpkg.sh`
 
-2. Configure CMake with the Ninja generator, pointing it at vcpkg's toolchain file:
+2. Configure CMake using the presets in `CMakePresets.json`, which already point at the Ninja generator and vcpkg's toolchain file:
 
    ```bash
-   cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake
+   cmake --preset Debug    # or: cmake --preset Release
    ```
+
+   This must be run from the repo root, where `CMakePresets.json` lives — `run.sh`/`run.cmd` already `cd` there for you. Equivalent without presets, if you ever need it: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake`.
 
    On the first run, this step is also where SFML actually gets built via vcpkg, see the timing note above. This command is safe to rerun any time; CMake only regenerates what's stale.
 

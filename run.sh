@@ -28,10 +28,8 @@ fi
 # Configure (safe to re-run every time; CMake only regenerates what's stale)
 # Local dev builds default to Debug for faster iteration; override with BUILD_TYPE=Release
 build_type="${BUILD_TYPE:-Debug}"
-echo "Configuring with CMake + Ninja (${build_type})..."
-if ! cmake -S . -B build -G Ninja \
-    -DCMAKE_BUILD_TYPE="${build_type}" \
-    -DCMAKE_TOOLCHAIN_FILE="${workspace}/vcpkg/scripts/buildsystems/vcpkg.cmake"; then
+echo "Configuring with CMake preset '${build_type}'..."
+if ! cmake --preset "${build_type}"; then
   echo "CMake configure failed!"
   exit 1
 fi
