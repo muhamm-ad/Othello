@@ -1,32 +1,15 @@
-/*
- * Othello - C++
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 3
- * of the License, or (at your option) any later version.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- */
+#include "Evaluator.hpp"
+#include "Player.hpp"
 
-#include "../include/Evaluator.hpp"
-
-constexpr char EMPTY = '-';
-constexpr char PLAYER_X = 'X';
-constexpr char PLAYER_O = 'O';
 constexpr int BOARD_SIZE = 8;
 constexpr int MAX_PIECES = 64;
-const std::vector<std::pair<int, int>> CORNERS = {std::make_pair(0, 0), std::make_pair(0, 7),
-                                                  std::make_pair(7, 0), std::make_pair(7, 7)};
+const std::vector<std::pair<int, int> > CORNERS = {
+    std::make_pair(0, 0), std::make_pair(0, 7),
+    std::make_pair(7, 0), std::make_pair(7, 7)
+};
 
-Evaluator::GamePhase Evaluator::getGamePhase(const std::vector<std::vector<char>> &board) {
-    int totalPiecesCount = BoardHelper::countPiecesTotal(board);
+Evaluator::GamePhase Evaluator::getGamePhase(const std::vector<std::vector<char> > &board) {
+    int totalPiecesCount = BoardHelper::countTotalPieces(board);
     if (totalPiecesCount < 20)
         return EARLY_GAME;
     else if (totalPiecesCount <= 58)
@@ -35,7 +18,7 @@ Evaluator::GamePhase Evaluator::getGamePhase(const std::vector<std::vector<char>
         return LATE_GAME;
 }
 
-int Evaluator::getEvaluation(const std::vector<std::vector<char>> &board, char player) {
+int Evaluator::getEvaluation(const std::vector<std::vector<char> > &board, char player) {
     // terminal
     if (BoardHelper::isGameFinished(board)) {
         return 1000 * evalDiscDiff(board, player);
@@ -48,7 +31,8 @@ int Evaluator::getEvaluation(const std::vector<std::vector<char>> &board, char p
         return 1000 * evalCorner(board, player) + 20 * evalMobility(board, player) +
                10 * evalDiscDiff(board, player) + 100 * evalParity(board) +
                50 * evalPositionalScore(board, player) + 50 * evalEdgeControl(board, player);
-    } else { // LATE_GAME
+    } else {
+        // LATE_GAME
         return 1000 * evalCorner(board, player) + 100 * evalMobility(board, player) +
                500 * evalDiscDiff(board, player) + 500 * evalParity(board) +
                100 * evalPositionalScore(board, player) + 100 * evalEdgeControl(board, player);
@@ -60,11 +44,11 @@ int Evaluator::getEvaluation(const std::vector<std::vector<char>> &board, char p
  * the opening, but increases to a moderate weight in the MID_GAME, and to a significant weight in
  * the endgame.)
  */
-int Evaluator::evalDiscDiff(const std::vector<std::vector<char>> &board, char player) {
-    char opponentPlayer = (player == PLAYER_X) ? PLAYER_O : PLAYER_X;
+int Evaluator::evalDiscDiff(const std::vector<std::vector<char> > &board, char player) {
+    char opponentPlayer = opponentOf(player);
 
-    int playerPiecesCount = BoardHelper::countPiecesPlayer(board, player);
-    int opponentPiecesCount = BoardHelper::countPiecesPlayer(board, opponentPlayer);
+    int playerPiecesCount = BoardHelper::countPlayerPieces(board, player);
+    int opponentPiecesCount = BoardHelper::countPlayerPieces(board, opponentPlayer);
 
     return 100 * (playerPiecesCount - opponentPiecesCount) /
            (playerPiecesCount + opponentPiecesCount);
@@ -74,8 +58,8 @@ int Evaluator::evalDiscDiff(const std::vector<std::vector<char>> &board, char pl
  * Mobility (Measures the number of moves the player is currently able to make. Has significant
  * weight in the opening game, but diminishes to zero weight towards the endgame.)
  */
-int Evaluator::evalMobility(const std::vector<std::vector<char>> &board, char player) {
-    char opponentPlayer = (player == PLAYER_X) ? PLAYER_O : PLAYER_X;
+int Evaluator::evalMobility(const std::vector<std::vector<char> > &board, char player) {
+    char opponentPlayer = opponentOf(player);
 
     int playerMoveCount = static_cast<int>(BoardHelper::getAllPossibleMoves(board, player).size());
     int opponentMoveCount =
@@ -88,8 +72,8 @@ int Evaluator::evalMobility(const std::vector<std::vector<char>> &board, char pl
  * Corner Grab (Measures if the current player can take a corner with its next move, Weighted highly
  * at all times.)
  */
-int Evaluator::evalCorner(const std::vector<std::vector<char>> &board, char player) {
-    char opponentPlayer = (player == PLAYER_X) ? PLAYER_O : PLAYER_X;
+int Evaluator::evalCorner(const std::vector<std::vector<char> > &board, char player) {
+    char opponentPlayer = opponentOf(player);
 
     int playerCorners = 0;
     int opponentCorners = 0;
@@ -108,28 +92,29 @@ int Evaluator::evalCorner(const std::vector<std::vector<char>> &board, char play
  * Parity (Measures who is expected to make the last move of the game. Has zero weight in the
  * opening, but increases to a very large weight in the MID_GAME and endgame.)
  */
-int Evaluator::evalParity(const std::vector<std::vector<char>> &board) {
-    int remainingDiscs = MAX_PIECES - BoardHelper::countPiecesTotal(board);
+int Evaluator::evalParity(const std::vector<std::vector<char> > &board) {
+    int remainingDiscs = MAX_PIECES - BoardHelper::countTotalPieces(board);
     return remainingDiscs % 2 == 0 ? -1 : 1;
 }
 
 const int scoreTable[8][8] = {
-        {120, -20, 20, 5,  5,  20, -20, 120},
-        {-20, -40, -5, -5, -5, -5, -40, -20},
-        {20,  -5,  15, 3,  3,  15, -5,  20},
-        {5,   -5,  3,  3,  3,  3,  -5,  5},
-        {5,   -5,  3,  3,  3,  3,  -5,  5},
-        {20,  -5,  15, 3,  3,  15, -5,  20},
-        {-20, -40, -5, -5, -5, -5, -40, -20},
-        {120, -20, 20, 5,  5,  20, -20, 120}};
+    {120, -20, 20, 5, 5, 20, -20, 120},
+    {-20, -40, -5, -5, -5, -5, -40, -20},
+    {20, -5, 15, 3, 3, 15, -5, 20},
+    {5, -5, 3, 3, 3, 3, -5, 5},
+    {5, -5, 3, 3, 3, 3, -5, 5},
+    {20, -5, 15, 3, 3, 15, -5, 20},
+    {-20, -40, -5, -5, -5, -5, -40, -20},
+    {120, -20, 20, 5, 5, 20, -20, 120}
+};
 
 /**
  * This heuristic checks how well the player has managed to place their discs on the board. The
  * heuristic uses a predefined positional weight matrix, which assigns higher scores to stable
  * positions (corners and edges) and lower scores to unstable positions (adjacent to corners).
  */
-int Evaluator::evalPositionalScore(const std::vector<std::vector<char>> &board, char player) {
-    char oPlayer = (player == PLAYER_X) ? PLAYER_O : PLAYER_X;
+int Evaluator::evalPositionalScore(const std::vector<std::vector<char> > &board, char player) {
+    char oPlayer = opponentOf(player);
 
     int myEdges = 0;
     int opEdges = 0;
@@ -164,7 +149,7 @@ int Evaluator::evalPositionalScore(const std::vector<std::vector<char>> &board, 
  * more discs on the edge of the board often provides an advantage, as these discs are more stable
  * (i.e., less likely to be flipped).
  */
-int Evaluator::evalEdgeControl(const std::vector<std::vector<char>> &board, char player) {
+int Evaluator::evalEdgeControl(const std::vector<std::vector<char> > &board, char player) {
     int score = 0;
     for (int i = 0; i < BOARD_SIZE; i++) {
         for (int j = 0; j < BOARD_SIZE; j++) {

@@ -1,20 +1,3 @@
-/*
- * Othello - C++
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 3
- * of the License, or (at your option) any later version.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- */
-
 #pragma once
 
 #include "BoardHelper.hpp"
@@ -37,18 +20,16 @@
  * evalParity, evalEdgeControl, evalPositionalScore,evalEdgeControl.
  */
 class Evaluator {
-
-  public:
-
+public:
     /**
      * @brief Calculates the evaluation score for a given board position and player.
      * @param board The current game board.
-     * @param player The player's disc character ('X' or 'O').
+     * @param player The player's disc character ('B' or 'W').
      * @return The evaluation score.
      */
-    static int getEvaluation(const std::vector<std::vector<char>> &board, char player);
+    static int getEvaluation(const std::vector<std::vector<char> > &board, char player);
 
-  private:
+private:
     BoardHelper bHelper;
 
     // Evaluation Function Changes during Early-Game / Mid-Game / Late-Game
@@ -59,31 +40,31 @@ class Evaluator {
      * @param board The current game board.
      * @return The game phase (EARLY_GAME, MID_GAME, or LATE_GAME).
      */
-    static GamePhase getGamePhase(const std::vector<std::vector<char>> &board);
+    static GamePhase getGamePhase(const std::vector<std::vector<char> > &board);
 
     /**
      * @brief Evaluates the disc difference between the player and the opponent.
      * @param board The current game board.
-     * @param player The player's disc character ('X' or 'O').
+     * @param player The player's disc character ('B' or 'W').
      * @return The disc difference score.
      */
-     static int evalDiscDiff(const std::vector<std::vector<char>> &board, char player);
+    static int evalDiscDiff(const std::vector<std::vector<char> > &board, char player);
 
     /**
      * @brief Evaluates the mobility of the player by calculating the number of possible moves.
      * @param board The current game board.
-     * @param player The player's disc character ('X' or 'O').
+     * @param player The player's disc character ('B' or 'W').
      * @return The mobility score.
      */
-    static int evalMobility(const std::vector<std::vector<char>> &board, char player);
+    static int evalMobility(const std::vector<std::vector<char> > &board, char player);
 
     /**
      * @brief Evaluates the corner grab potential of the player.
      * @param board The current game board.
-     * @param player The player's disc character ('X' or 'O').
+     * @param player The player's disc character ('B' or 'W').
      * @return The corner grab score.
      */
-    static int evalCorner(const std::vector<std::vector<char>> &board, char player);
+    static int evalCorner(const std::vector<std::vector<char> > &board, char player);
 
     /**
      * @brief Evaluates the parity of the game based on the remaining number of discs to be placed
@@ -91,21 +72,21 @@ class Evaluator {
      * @param board The current game board.
      * @return The parity score (-1 or 1).
      */
-    static int evalParity(const std::vector<std::vector<char>> &board);
+    static int evalParity(const std::vector<std::vector<char> > &board);
 
     /**
      * @brief Evaluates the positional score of the player.
      * @param board The current game board.
-     * @param player The player's disc character ('X' or 'O').
+     * @param player The player's disc character ('B' or 'W').
      * @return The positional score.
      */
-    static int evalPositionalScore(const std::vector<std::vector<char>> &board, char player);
+    static int evalPositionalScore(const std::vector<std::vector<char> > &board, char player);
 
     /**
      * @brief Evaluates the edge control of the player.
      * @param board The current game board.
-     * @param player The player's disc character ('X' or 'O').
+     * @param player The player's disc character ('B' or 'W').
      * @return The edge control score.
      */
-    static int evalEdgeControl(const std::vector<std::vector<char>> &board, char player);
+    static int evalEdgeControl(const std::vector<std::vector<char> > &board, char player);
 };

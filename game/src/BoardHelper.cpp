@@ -1,38 +1,19 @@
-/*
- * Othello - C++
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 3
- * of the License, or (at your option) any later version.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- */
+#include "BoardHelper.hpp"
+#include "Player.hpp"
 
-#include "../include/BoardHelper.hpp"
-
-const char EMPTY = '-';
-const char PLAYER_X = 'X';
-const char PLAYER_O = 'O';
 const int BOARD_SIZE = 8;
 
-void BoardHelper::initBoard(std::vector<std::vector<char>> &board) {
+void BoardHelper::initBoard(std::vector<std::vector<char> > &board) {
     // Initialize the ( BOARD_SIZE x BOARD_SIZE ) board with empty spaces
-    board = std::vector<std::vector<char>>(BOARD_SIZE, std::vector<char>(BOARD_SIZE, EMPTY));
+    board = std::vector<std::vector<char> >(BOARD_SIZE, std::vector<char>(BOARD_SIZE, EMPTY));
     // Place the initial pieces in the center
-    board[3][3] = PLAYER_X;
-    board[3][4] = PLAYER_O;
-    board[4][3] = PLAYER_O;
-    board[4][4] = PLAYER_X;
+    board[3][3] = PLAYER_BLACK;
+    board[3][4] = PLAYER_WHITE;
+    board[4][3] = PLAYER_WHITE;
+    board[4][4] = PLAYER_BLACK;
 }
 
-void BoardHelper::printBoard(const std::vector<std::vector<char>> &board) {
+void BoardHelper::printBoard(const std::vector<std::vector<char> > &board) {
     std::cout << "\n   0 1 2 3 4 5 6 7 \n";
     std::cout << "------------------\n";
     for (unsigned int row = 0; row < BOARD_SIZE; row++) {
@@ -44,12 +25,12 @@ void BoardHelper::printBoard(const std::vector<std::vector<char>> &board) {
     }
 }
 
-bool BoardHelper::isReversible(const std::vector<std::vector<char>> &board, const Position &pos, char player) {
+bool BoardHelper::isReversible(const std::vector<std::vector<char> > &board,
+                               const Position &pos, char player) {
     // Check the eight directions around the cell
     for (int row = -1; row <= 1; row++) {
         for (int col = -1; col <= 1; col++) {
-            if (row == 0 && col == 0)
-                continue; // Ignore the current cell
+            if (row == 0 && col == 0) continue; // Ignore the current cell
             int k = 1;
             while (true) {
                 int newRow = (int) pos.row + row * k;
@@ -57,12 +38,11 @@ bool BoardHelper::isReversible(const std::vector<std::vector<char>> &board, cons
                 if (newRow < 0 || ((unsigned) newRow) >= board.size() || newCol < 0 ||
                     ((unsigned) newCol) >= board[newRow].size())
                     break; // Exit if we are outside the game board
-                if (board[newRow][newCol] == EMPTY)
-                    break; // Exit if the cell is empty
+                if (board[newRow][newCol] == EMPTY) break; // Exit if the cell is empty
                 if (board[newRow][newCol] == player) {
                     if (k > 1) {
-                        // If we found a piece of the current player after finding a piece of the
-                        // other player, then the move is valid
+                        // If we found a piece of the current player after finding a piece
+                        // of the other player, then the move is valid
                         return true;
                     }
                     break;
@@ -74,31 +54,31 @@ bool BoardHelper::isReversible(const std::vector<std::vector<char>> &board, cons
     return false;
 }
 
-bool BoardHelper::isValidMove(const std::vector<std::vector<char>> &board, const Position &pos, char player) {
+bool BoardHelper::isValidMove(const std::vector<std::vector<char> > &board,
+                              const Position &pos, char player) {
     if (board[pos.row][pos.col] != EMPTY)
         return false; // Check if the cell is empty
-    if (pos.row < 0 || pos.row >= BOARD_SIZE || pos.col < 0 || pos.col >= BOARD_SIZE)
+    if (pos.row < 0 || pos.row >= BOARD_SIZE || pos.col < 0 ||
+        pos.col >= BOARD_SIZE)
         return false; // Check if the cell is within the game board limits
 
     return isReversible(board, pos, player);
 }
 
-void BoardHelper::reversePieces(std::vector<std::vector<char>> &board, const Position &pos,
-                                char player) {
+void BoardHelper::reversePieces(std::vector<std::vector<char> > &board,
+                                const Position &pos, char player) {
     // Check the eight directions around the cell
     for (int i = -1; i <= 1; i++) {
         for (int j = -1; j <= 1; j++) {
-            if (i == 0 && j == 0)
-                continue; // Ignore the current cell
+            if (i == 0 && j == 0) continue; // Ignore the current cell
             int k = 1;
             while (true) {
                 int newRow = (int) pos.row + i * k;
                 int newCol = (int) pos.col + j * k;
-                if (newRow < 0 || ((unsigned int) newRow) >= board.size() || newCol < 0 ||
-                    ((unsigned int) newCol) >= board[newRow].size())
+                if (newRow < 0 || ((unsigned int) newRow) >= board.size() ||
+                    newCol < 0 || ((unsigned int) newCol) >= board[newRow].size())
                     break; // Exit if we are outside the game board
-                if (board[newRow][newCol] == EMPTY)
-                    break; // Exit if the cell is empty
+                if (board[newRow][newCol] == EMPTY) break; // Exit if the cell is empty
                 if (board[newRow][newCol] == player) {
                     if (k > 1) {
                         for (int k2 = k - 1; k2 > 0; k2--)
@@ -113,63 +93,67 @@ void BoardHelper::reversePieces(std::vector<std::vector<char>> &board, const Pos
     }
 }
 
-void BoardHelper::playMove(std::vector<std::vector<char>> &board, const Position &pos, char player) {
-    // if (!isValidMove(board, pos, player)) throw invalid_argument("Invalid move");
-    board[pos.row][pos.col] = player; // Place the current player's piece on the chosen cell
+void BoardHelper::playMove(std::vector<std::vector<char> > &board,
+                           const Position &pos, char player) {
+    // if (!isValidMove(board, pos, player)) throw invalid_argument("Invalid
+    // move");
+    board[pos.row][pos.col] =
+            player; // Place the current player's piece on the chosen cell
     reversePieces(board, pos, player);
 }
 
-std::vector<Position> BoardHelper::getAllPossibleMoves(const std::vector<std::vector<char>> &board, char player) {
+std::vector<Position> BoardHelper::getAllPossibleMoves(
+    const std::vector<std::vector<char> > &board, char player) {
     std::vector<Position> result;
     for (unsigned int row = 0; row < board.size(); ++row) {
         for (unsigned int col = 0; col < board[row].size(); col++) {
             Position p(row, col);
-            if (isValidMove(board, p, player))
-                result.emplace_back(p);
+            if (isValidMove(board, p, player)) result.emplace_back(p);
         }
     }
     return result;
 }
 
-bool BoardHelper::isGameFinished(const std::vector<std::vector<char>> &board) {
-    return (getAllPossibleMoves(board, 'X').empty() && getAllPossibleMoves(board, 'O').empty());
+bool BoardHelper::isGameFinished(const std::vector<std::vector<char> > &board) {
+    return (getAllPossibleMoves(board, PLAYER_BLACK).empty() &&
+            getAllPossibleMoves(board, PLAYER_WHITE).empty());
 }
 
-bool BoardHelper::switchPlayer(const std::vector<std::vector<char>> &board, char &player) {
-    char newPlayer = (player == PLAYER_X) ? PLAYER_O : PLAYER_X;
+bool BoardHelper::switchPlayer(const std::vector<std::vector<char> > &board,
+                               char &player) {
+    char newPlayer = opponentOf(player);
     auto newPlayerMoves = getAllPossibleMoves(board, newPlayer);
     auto currentPlayerMoves = getAllPossibleMoves(board, player);
     if (!newPlayerMoves.empty()) {
         player = newPlayer;
         return true;
     }
-    if (!currentPlayerMoves.empty())
-        return true;
+    if (!currentPlayerMoves.empty()) return true;
     return false;
 }
 
-int BoardHelper::countPiecesPlayer(const std::vector<std::vector<char>> &board, char player) {
+int BoardHelper::countPlayerPieces(const std::vector<std::vector<char> > &board,
+                                   char player) {
     int score = 0;
     for (const auto &row: board)
         for (const auto &col: row)
-            if (col == player)
-                score++;
+            if (col == player) score++;
     return score;
 }
 
-int BoardHelper::countPiecesTotal(const std::vector<std::vector<char>> &board) {
+int BoardHelper::countTotalPieces(const std::vector<std::vector<char> > &board) {
     int c = 0;
     for (const auto &row: board)
         for (const auto &col: row)
-            if (col != EMPTY)
-                c++;
+            if (col != EMPTY) c++;
     return c;
 }
 
-std::vector<std::vector<char>>
-BoardHelper::getBoardAfterMove(const std::vector<std::vector<char>> &board, const Position &move, char player) {
+std::vector<std::vector<char> > BoardHelper::getBoardAfterMove(
+    const std::vector<std::vector<char> > &board, const Position &move,
+    char player) {
     // get clone of old board
-    std::vector<std::vector<char>> newBoard = board;
+    std::vector<std::vector<char> > newBoard = board;
     // place piece
     newBoard[move.row][move.col] = player;
     // reverse pieces
@@ -180,9 +164,9 @@ BoardHelper::getBoardAfterMove(const std::vector<std::vector<char>> &board, cons
     return newBoard;
 }
 
-std::vector<Position>
-BoardHelper::checkUp(std::vector<std::vector<char>> &board, char player, const Position &pos) {
-    char o_player = ((player == PLAYER_X) ? PLAYER_O : PLAYER_X);
+std::vector<Position> BoardHelper::checkUp(
+    std::vector<std::vector<char> > &board, char player, const Position &pos) {
+    char o_player = opponentOf(player);
     std::vector<Position> m_up;
     int mRow = (int) pos.row - 1;
     int mCol = (int) pos.col;
@@ -196,9 +180,9 @@ BoardHelper::checkUp(std::vector<std::vector<char>> &board, char player, const P
         return {};
 }
 
-std::vector<Position>
-BoardHelper::checkUpRight(std::vector<std::vector<char>> &board, char player, const Position &pos) {
-    char o_player = ((player == PLAYER_X) ? PLAYER_O : PLAYER_X);
+std::vector<Position> BoardHelper::checkUpRight(
+    std::vector<std::vector<char> > &board, char player, const Position &pos) {
+    char o_player = opponentOf(player);
     std::vector<Position> m_up_right;
     int mRow = (int) pos.row - 1;
     int mCol = (int) pos.col + 1;
@@ -207,15 +191,16 @@ BoardHelper::checkUpRight(std::vector<std::vector<char>> &board, char player, co
         mRow--;
         mCol++;
     }
-    if (mRow >= 0 && mCol <= 7 && board[mRow][mCol] == player && !m_up_right.empty())
+    if (mRow >= 0 && mCol <= 7 && board[mRow][mCol] == player &&
+        !m_up_right.empty())
         return m_up_right;
     else
         return {};
 }
 
-std::vector<Position>
-BoardHelper::checkRight(std::vector<std::vector<char>> &board, char player, const Position &pos) {
-    char o_player = ((player == PLAYER_X) ? PLAYER_O : PLAYER_X);
+std::vector<Position> BoardHelper::checkRight(
+    std::vector<std::vector<char> > &board, char player, const Position &pos) {
+    char o_player = opponentOf(player);
     std::vector<Position> m_right;
     int mRow = (int) pos.row;
     int mCol = (int) pos.col + 1;
@@ -229,9 +214,9 @@ BoardHelper::checkRight(std::vector<std::vector<char>> &board, char player, cons
         return {};
 }
 
-std::vector<Position>
-BoardHelper::checkDownRight(std::vector<std::vector<char>> &board, char player, const Position &pos) {
-    char o_player = ((player == PLAYER_X) ? PLAYER_O : PLAYER_X);
+std::vector<Position> BoardHelper::checkDownRight(
+    std::vector<std::vector<char> > &board, char player, const Position &pos) {
+    char o_player = opponentOf(player);
     std::vector<Position> m_down_right;
     int mRow = (int) pos.row + 1;
     int mCol = (int) pos.col + 1;
@@ -240,15 +225,16 @@ BoardHelper::checkDownRight(std::vector<std::vector<char>> &board, char player, 
         mRow++;
         mCol++;
     }
-    if (mRow <= 7 && mCol <= 7 && board[mRow][mCol] == player && !m_down_right.empty())
+    if (mRow <= 7 && mCol <= 7 && board[mRow][mCol] == player &&
+        !m_down_right.empty())
         return m_down_right;
     else
         return {};
 }
 
-std::vector<Position>
-BoardHelper::checkDown(std::vector<std::vector<char>> &board, char player, const Position &pos) {
-    char o_player = ((player == PLAYER_X) ? PLAYER_O : PLAYER_X);
+std::vector<Position> BoardHelper::checkDown(
+    std::vector<std::vector<char> > &board, char player, const Position &pos) {
+    char o_player = opponentOf(player);
     std::vector<Position> m_down;
     int mRow = (int) pos.row + 1;
     int mCol = (int) pos.col;
@@ -262,9 +248,9 @@ BoardHelper::checkDown(std::vector<std::vector<char>> &board, char player, const
         return {};
 }
 
-std::vector<Position>
-BoardHelper::checkDownLeft(std::vector<std::vector<char>> &board, char player, const Position &pos) {
-    char o_player = ((player == PLAYER_X) ? PLAYER_O : PLAYER_X);
+std::vector<Position> BoardHelper::checkDownLeft(
+    std::vector<std::vector<char> > &board, char player, const Position &pos) {
+    char o_player = opponentOf(player);
     std::vector<Position> m_down_left;
     int mRow = (int) pos.row + 1;
     int mCol = (int) pos.col - 1;
@@ -273,15 +259,16 @@ BoardHelper::checkDownLeft(std::vector<std::vector<char>> &board, char player, c
         mRow++;
         mCol--;
     }
-    if (mRow <= 7 && mCol >= 0 && board[mRow][mCol] == player && !m_down_left.empty())
+    if (mRow <= 7 && mCol >= 0 && board[mRow][mCol] == player &&
+        !m_down_left.empty())
         return m_down_left;
     else
         return {};
 }
 
-std::vector<Position>
-BoardHelper::checkLeft(std::vector<std::vector<char>> &board, char player, const Position &pos) {
-    char o_player = ((player == PLAYER_X) ? PLAYER_O : PLAYER_X);
+std::vector<Position> BoardHelper::checkLeft(
+    std::vector<std::vector<char> > &board, char player, const Position &pos) {
+    char o_player = opponentOf(player);
     std::vector<Position> m_left;
     int mRow = (int) pos.row;
     int mCol = (int) pos.col - 1;
@@ -295,9 +282,9 @@ BoardHelper::checkLeft(std::vector<std::vector<char>> &board, char player, const
         return {};
 }
 
-std::vector<Position>
-BoardHelper::checkUpLeft(std::vector<std::vector<char>> &board, char player, const Position &pos) {
-    char o_player = ((player == PLAYER_X) ? PLAYER_O : PLAYER_X);
+std::vector<Position> BoardHelper::checkUpLeft(
+    std::vector<std::vector<char> > &board, char player, const Position &pos) {
+    char o_player = opponentOf(player);
     std::vector<Position> m_up_left;
     int mRow = (int) pos.row - 1;
     int mCol = (int) pos.col - 1;
@@ -306,14 +293,15 @@ BoardHelper::checkUpLeft(std::vector<std::vector<char>> &board, char player, con
         mRow--;
         mCol--;
     }
-    if (mRow >= 0 && mCol >= 0 && board[mRow][mCol] == player && !m_up_left.empty())
+    if (mRow >= 0 && mCol >= 0 && board[mRow][mCol] == player &&
+        !m_up_left.empty())
         return m_up_left;
     else
         return {};
 }
 
-std::vector<Position>
-BoardHelper::getReversePoints(std::vector<std::vector<char>> &o_board, char player, const Position &pos) {
+std::vector<Position> BoardHelper::getReversePoints(
+    std::vector<std::vector<char> > &o_board, char player, const Position &pos) {
     std::vector<Position> allReversePoints;
     std::vector<Position> temp;
 
