@@ -177,18 +177,18 @@ namespace {
     std::filesystem::path findAssetRoot() {
         namespace fs = std::filesystem;
         const std::vector<fs::path> candidates = {
-            fs::current_path() / "gameViewer" / "assets",
+            fs::current_path() / "game" / "assets",
             fs::current_path() / "assets",
-            fs::current_path().parent_path() / "gameViewer" / "assets",
-            fs::path("gameViewer/assets"),
-            fs::path("../gameViewer/assets"),
+            fs::current_path().parent_path() / "game" / "assets",
+            fs::path("game/assets"),
+            fs::path("../game/assets"),
         };
         for (const auto &base: candidates) {
             if (fs::exists(base / "fonts" / "DejaVuSans.ttf")) {
                 return base;
             }
         }
-        return fs::path("gameViewer/assets");
+        return fs::path("game/assets");
     }
 } // namespace
 

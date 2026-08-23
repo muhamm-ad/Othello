@@ -1,4 +1,5 @@
 #include "Solver.hpp"
+#include "Evaluator.hpp"
 #include "Player.hpp"
 
 #include <vector>
