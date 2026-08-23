@@ -32,6 +32,43 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
+      # vcvars (msvc-dev-cmd) rewrites PATH and can hide the image's Ninja.
+      - name: Install Ninja
+        shell: bash
+        run: |
+          add_to_path() {
+            echo "$1" >> "$GITHUB_PATH"
+            export PATH="$1:$PATH"
+          }
+
+          if ! command -v ninja >/dev/null 2>&1; then
+            case "$RUNNER_OS" in
+              Linux)
+                sudo apt-get update
+                sudo apt-get install -y ninja-build
+                ;;
+              macOS)
+                brew install ninja
+                ;;
+              Windows)
+                found=
+                for dir in "/c/Tools/Ninja" "/c/Program Files/Ninja" "/c/ProgramData/chocolatey/bin"; do
+                  if [ -x "$dir/ninja.exe" ]; then
+                    add_to_path "$dir"
+                    found=1
+                    break
+                  fi
+                done
+                if [ -z "$found" ]; then
+                  choco install ninja --yes --no-progress
+                  add_to_path "/c/ProgramData/chocolatey/bin"
+                fi
+                ;;
+            esac
+          fi
+
+          ninja --version
+
       - name: Cache vcpkg archives
         uses: actions/cache@v6
         with:
@@ -53,11 +90,7 @@ jobs:
           fi
 
       - name: Configure
-        shell: bash
-        run: |
-          cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+        run: cmake --preset Release
 
       - name: Build
         run: cmake --build build --parallel
