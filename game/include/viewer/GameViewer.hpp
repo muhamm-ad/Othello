@@ -6,11 +6,14 @@
 #include <SFML/Graphics.hpp>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 /**
  * @brief SFML window that renders the board ("pressed felt & bone" visual
  * direction) and drives human vs AI play.
+ *
+ * Drawing and input are split under game/src/viewer/.
  */
 class GameViewer {
 public:
@@ -51,8 +54,7 @@ private:
     char player;
   };
 
-  /** @brief Live geometry recomputed from the current window size every frame.
-   */
+  /** @brief Live geometry recomputed from the current window size every frame. */
   struct Layout {
     float pad = 14.f;
     float side = 240.f;
@@ -87,16 +89,11 @@ private:
     float hintY = 0.f;
   };
 
-  struct GameOverLayout {
+  /** @brief Shared game-over / confirm chrome: left and right footer buttons. */
+  struct DialogLayout {
     sf::FloatRect card;
-    sf::FloatRect playAgain;
-    sf::FloatRect quit;
-  };
-
-  struct ConfirmLayout {
-    sf::FloatRect card;
-    sf::FloatRect confirm;
-    sf::FloatRect cancel;
+    sf::FloatRect left;
+    sf::FloatRect right;
   };
 
   enum class ConfirmKind { None, Restart, Quit };
@@ -110,86 +107,54 @@ private:
   static constexpr size_t NAME_MAX_LEN = 16;
 
   void processEvents();
-
   void update(float dt);
-
   void render();
 
   [[nodiscard]] Layout computeLayout() const;
-
   [[nodiscard]] SetupLayout computeSetupLayout() const;
-
-  [[nodiscard]] GameOverLayout computeGameOverLayout() const;
+  [[nodiscard]] DialogLayout computeDialogLayout(float cardH) const;
 
   void handleBoardClick(sf::Vector2f mousePos);
-
   void handleSetupClick(sf::Vector2f mousePos);
-
   void handleSetupKey(sf::Keyboard::Key key);
-
   void handleTextEntered(char32_t unicode);
-
   void handleGameOverClick(sf::Vector2f mousePos);
 
   void requestConfirm(ConfirmKind kind);
-
   void confirmDialog();
-
   void cancelDialog();
-
   void handleConfirmKey(sf::Keyboard::Key key);
-
   void handleConfirmClick(sf::Vector2f mousePos);
 
-  [[nodiscard]] ConfirmLayout computeConfirmLayout() const;
-
   void tryHumanMove(const Position &move);
-
   void playAiMove();
+  int spawnMoveAnims(const Position &move, const std::vector<std::vector<char>> &before,
+                     char player, bool withRing);
 
   void startGame();
-
   void resetGame();
-
   void undoLastMove();
-
   void pushHistory();
-
   void switchTo(char player);
 
   [[nodiscard]] std::optional<Position> cellFromPoint(sf::Vector2f point) const;
-
-  [[nodiscard]] static sf::Vector2f cellCenter(const Position &pos,
-                                               const Layout &layout);
-
+  [[nodiscard]] static sf::Vector2f cellCenter(const Position &pos, const Layout &layout);
+  [[nodiscard]] std::pair<int, int> pieceCounts() const;
   [[nodiscard]] std::string outcomeMessage() const;
-
   [[nodiscard]] std::string resultHeadline() const;
-
   [[nodiscard]] static size_t depthForDifficulty(Difficulty difficulty);
-
   [[nodiscard]] static const char *difficultyLabel(Difficulty difficulty);
 
   void drawSetupScreen();
-
   void drawMainWindow(const Layout &layout);
-
   void drawBoardPlinth(const Layout &layout);
-
   void drawDiscs(const Layout &layout);
-
   void drawValidHints(const Layout &layout);
-
   void drawSidebar(const Layout &layout);
-
   void drawGameOverOverlay();
-
   void drawConfirmDialog();
 
-  void generateTextures();
-
   bool loadFonts();
-
   void setStatus(const std::string &message);
 
   sf::RenderWindow window_;

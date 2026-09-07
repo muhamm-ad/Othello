@@ -18,7 +18,12 @@ set(SOURCE_FILES
         game/src/BoardHelper.cpp
         game/src/Evaluator.cpp
         game/src/Solver.cpp
-        game/src/GameViewer.cpp
+        game/src/viewer/Style.cpp
+        game/src/viewer/Ui.cpp
+        game/src/viewer/GameViewer.cpp
+        game/src/viewer/Setup.cpp
+        game/src/viewer/Board.cpp
+        game/src/viewer/Hud.cpp
         game/game.cpp
 )
 set(externLibs
