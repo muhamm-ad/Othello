@@ -3,6 +3,13 @@ project(Othello LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    message(FATAL_ERROR
+        "MinGW (${CMAKE_CXX_COMPILER}) cannot use the MSVC SFML package vcpkg installs "
+        "(triplet x64-windows). Run .\\run.cmd — it loads the Visual Studio environment — "
+        "or open a Developer Command Prompt for VS and configure with a clean build/ folder.")
+endif()
+
 include_directories(game/include)
 find_package(SFML 3 COMPONENTS Graphics Window System REQUIRED)
 

@@ -3,7 +3,7 @@
 
 const int BOARD_SIZE = 8;
 
-void BoardHelper::initBoard(std::vector<std::vector<char> > &board) {
+void BoardHelper::initBoard(std::vector<std::vector<char>> &board) {
     // Initialize the ( BOARD_SIZE x BOARD_SIZE ) board with empty spaces
     board = std::vector<std::vector<char> >(BOARD_SIZE, std::vector<char>(BOARD_SIZE, EMPTY));
     // Place the initial pieces in the center
@@ -13,7 +13,7 @@ void BoardHelper::initBoard(std::vector<std::vector<char> > &board) {
     board[4][4] = PLAYER_BLACK;
 }
 
-void BoardHelper::printBoard(const std::vector<std::vector<char> > &board) {
+void BoardHelper::printBoard(const std::vector<std::vector<char>> &board) {
     std::cout << "\n   0 1 2 3 4 5 6 7 \n";
     std::cout << "------------------\n";
     for (unsigned int row = 0; row < BOARD_SIZE; row++) {
@@ -25,8 +25,7 @@ void BoardHelper::printBoard(const std::vector<std::vector<char> > &board) {
     }
 }
 
-bool BoardHelper::isReversible(const std::vector<std::vector<char> > &board,
-                               const Position &pos, char player) {
+bool BoardHelper::isReversible(const std::vector<std::vector<char>> &board, const Position &pos, char player) {
     // Check the eight directions around the cell
     for (int row = -1; row <= 1; row++) {
         for (int col = -1; col <= 1; col++) {
@@ -54,8 +53,7 @@ bool BoardHelper::isReversible(const std::vector<std::vector<char> > &board,
     return false;
 }
 
-bool BoardHelper::isValidMove(const std::vector<std::vector<char> > &board,
-                              const Position &pos, char player) {
+bool BoardHelper::isValidMove(const std::vector<std::vector<char> > &board, const Position &pos, char player) {
     if (board[pos.row][pos.col] != EMPTY)
         return false; // Check if the cell is empty
     if (pos.row < 0 || pos.row >= BOARD_SIZE || pos.col < 0 ||
@@ -65,8 +63,7 @@ bool BoardHelper::isValidMove(const std::vector<std::vector<char> > &board,
     return isReversible(board, pos, player);
 }
 
-void BoardHelper::reversePieces(std::vector<std::vector<char> > &board,
-                                const Position &pos, char player) {
+void BoardHelper::reversePieces(std::vector<std::vector<char> > &board, const Position &pos, char player) {
     // Check the eight directions around the cell
     for (int i = -1; i <= 1; i++) {
         for (int j = -1; j <= 1; j++) {
@@ -93,17 +90,13 @@ void BoardHelper::reversePieces(std::vector<std::vector<char> > &board,
     }
 }
 
-void BoardHelper::playMove(std::vector<std::vector<char> > &board,
-                           const Position &pos, char player) {
-    // if (!isValidMove(board, pos, player)) throw invalid_argument("Invalid
-    // move");
-    board[pos.row][pos.col] =
-            player; // Place the current player's piece on the chosen cell
+void BoardHelper::playMove(std::vector<std::vector<char> > &board, const Position &pos, char player) {
+    // if (!isValidMove(board, pos, player)) throw invalid_argument("Invalid move");
+    board[pos.row][pos.col] = player; // Place the current player's piece on the chosen cell
     reversePieces(board, pos, player);
 }
 
-std::vector<Position> BoardHelper::getAllPossibleMoves(
-    const std::vector<std::vector<char> > &board, char player) {
+std::vector<Position> BoardHelper::getAllPossibleMoves(const std::vector<std::vector<char> > &board, char player) {
     std::vector<Position> result;
     for (unsigned int row = 0; row < board.size(); ++row) {
         for (unsigned int col = 0; col < board[row].size(); col++) {
@@ -119,8 +112,7 @@ bool BoardHelper::isGameFinished(const std::vector<std::vector<char> > &board) {
             getAllPossibleMoves(board, PLAYER_WHITE).empty());
 }
 
-bool BoardHelper::switchPlayer(const std::vector<std::vector<char> > &board,
-                               char &player) {
+bool BoardHelper::switchPlayer(const std::vector<std::vector<char> > &board, char &player) {
     char newPlayer = opponentOf(player);
     auto newPlayerMoves = getAllPossibleMoves(board, newPlayer);
     auto currentPlayerMoves = getAllPossibleMoves(board, player);
@@ -132,8 +124,7 @@ bool BoardHelper::switchPlayer(const std::vector<std::vector<char> > &board,
     return false;
 }
 
-int BoardHelper::countPlayerPieces(const std::vector<std::vector<char> > &board,
-                                   char player) {
+int BoardHelper::countPlayerPieces(const std::vector<std::vector<char> > &board, char player) {
     int score = 0;
     for (const auto &row: board)
         for (const auto &col: row)
@@ -149,9 +140,8 @@ int BoardHelper::countTotalPieces(const std::vector<std::vector<char> > &board) 
     return c;
 }
 
-std::vector<std::vector<char> > BoardHelper::getBoardAfterMove(
-    const std::vector<std::vector<char> > &board, const Position &move,
-    char player) {
+std::vector<std::vector<char>> BoardHelper::getBoardAfterMove(
+    const std::vector<std::vector<char> > &board, const Position &move, char player) {
     // get clone of old board
     std::vector<std::vector<char> > newBoard = board;
     // place piece

@@ -198,7 +198,7 @@ GameViewer::GameViewer()
       phase_(Phase::Setup) {
     window_.setFramerateLimit(60);
     window_.setVerticalSyncEnabled(true);
-    window_.setMinimumSize(sf::Vector2u(MIN_WIDTH, MIN_HEIGHT));
+    window_.setMinimumSize(std::optional<sf::Vector2u>{{MIN_WIDTH, MIN_HEIGHT}});
     fontsLoaded_ = loadFonts();
     generateTextures();
     BoardHelper::initBoard(board_);
@@ -286,11 +286,11 @@ void GameViewer::setStatus(const std::string &message) { statusMessage_ = messag
 size_t GameViewer::depthForDifficulty(Difficulty difficulty) {
     switch (difficulty) {
         case Difficulty::Casual:
-            return 2;
+            return 1;
         case Difficulty::Steady:
-            return 4;
+            return 3;
         case Difficulty::Sharp:
-            return 6;
+            return 5;
         case Difficulty::Ruthless:
             return 7;
     }
@@ -358,36 +358,50 @@ int GameViewer::run() {
 void GameViewer::processEvents() {
     while (const std::optional event = window_.pollEvent()) {
         if (event->is<sf::Event::Closed>()) {
-            window_.close();
-        } else if (const auto *resized = event->getIf<sf::Event::Resized>()) {
-            const sf::FloatRect visibleArea({0.f, 0.f},
-                                            {
-                                                static_cast<float>(resized->size.x),
-                                                static_cast<float>(resized->size.y)
-                                            });
-            window_.setView(sf::View(visibleArea));
-        } else if (const auto *keyPressed = event->getIf<sf::Event::KeyPressed>()) {
-            if (keyPressed->code == sf::Keyboard::Key::Escape) {
+            if (confirmKind_ == ConfirmKind::Quit) {
                 window_.close();
+            } else {
+                requestConfirm(ConfirmKind::Quit);
+            }
+        } else if (const auto *resized = event->getIf<sf::Event::Resized>()) {
+            const unsigned int width = std::max(resized->size.x, MIN_WIDTH);
+            const unsigned int height = std::max(resized->size.y, MIN_HEIGHT);
+            if (width != resized->size.x || height != resized->size.y) {
+                window_.setSize({width, height});
+            }
+            const auto size = window_.getSize();
+            window_.setView(sf::View(sf::FloatRect({0.f, 0.f}, {
+                static_cast<float>(size.x),
+                static_cast<float>(size.y)
+            })));
+        } else if (const auto *keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+            if (confirmKind_ != ConfirmKind::None) {
+                handleConfirmKey(keyPressed->code);
+            } else if (keyPressed->code == sf::Keyboard::Key::Escape ||
+                       (keyPressed->code == sf::Keyboard::Key::Q &&
+                        !(phase_ == Phase::Setup && nameFocused_))) {
+                requestConfirm(ConfirmKind::Quit);
             } else if (phase_ == Phase::Setup) {
                 handleSetupKey(keyPressed->code);
             } else if (keyPressed->code == sf::Keyboard::Key::R &&
                        (phase_ == Phase::GameOver || phase_ == Phase::Playing ||
                         phase_ == Phase::AiThinking)) {
-                resetGame();
+                requestConfirm(ConfirmKind::Restart);
             } else if (keyPressed->code == sf::Keyboard::Key::U &&
                        (phase_ == Phase::Playing || phase_ == Phase::GameOver)) {
                 undoLastMove();
             }
         } else if (const auto *textEntered = event->getIf<sf::Event::TextEntered>()) {
-            if (phase_ == Phase::Setup && nameFocused_) {
+            if (phase_ == Phase::Setup && nameFocused_ && confirmKind_ == ConfirmKind::None) {
                 handleTextEntered(textEntered->unicode);
             }
         } else if (const auto *mousePressed = event->getIf<sf::Event::MouseButtonPressed>()) {
             if (mousePressed->button == sf::Mouse::Button::Left) {
                 const sf::Vector2f mouse(static_cast<float>(mousePressed->position.x),
                                          static_cast<float>(mousePressed->position.y));
-                if (phase_ == Phase::Setup) {
+                if (confirmKind_ != ConfirmKind::None) {
+                    handleConfirmClick(mouse);
+                } else if (phase_ == Phase::Setup) {
                     handleSetupClick(mouse);
                 } else if (phase_ == Phase::GameOver) {
                     handleGameOverClick(mouse);
@@ -565,24 +579,92 @@ GameViewer::GameOverLayout GameViewer::computeGameOverLayout() const {
     const auto winSize = window_.getSize();
     const float w = static_cast<float>(winSize.x);
     const float h = static_cast<float>(winSize.y);
-    const float cardW = 440.f;
-    const float cardH = 300.f;
+    const float cardW = 420.f;
+    const float cardH = 252.f;
     const float cx = (w - cardW) * 0.5f;
     const float cy = (h - cardH) * 0.5f;
     gl.card = {{cx, cy}, {cardW, cardH}};
-    const float padLR = 34.f;
-    gl.playAgain = {{cx + padLR, cy + cardH - 34.f - 46.f - 10.f - 42.f}, {cardW - 2.f * padLR, 46.f}};
-    gl.quit = {{cx + padLR, cy + cardH - 34.f - 42.f}, {cardW - 2.f * padLR, 42.f}};
+    const float padLR = 28.f;
+    const float btnW = (cardW - 2.f * padLR - 12.f) * 0.5f;
+    const float btnH = 46.f;
+    const float btnY = cy + cardH - 28.f - btnH;
+    gl.quit = {{cx + padLR, btnY}, {btnW, btnH}};
+    gl.playAgain = {{cx + padLR + btnW + 12.f, btnY}, {btnW, btnH}};
     return gl;
 }
 
 void GameViewer::handleGameOverClick(sf::Vector2f mousePos) {
     const GameOverLayout gl = computeGameOverLayout();
     if (pointInRect(mousePos, gl.playAgain)) {
-        resetGame();
+        requestConfirm(ConfirmKind::Restart);
     } else if (pointInRect(mousePos, gl.quit)) {
+        requestConfirm(ConfirmKind::Quit);
+    }
+}
+
+void GameViewer::requestConfirm(ConfirmKind kind) {
+    if (kind == ConfirmKind::None) {
+        return;
+    }
+    confirmKind_ = kind;
+}
+
+void GameViewer::confirmDialog() {
+    const ConfirmKind kind = confirmKind_;
+    confirmKind_ = ConfirmKind::None;
+    if (kind == ConfirmKind::Restart) {
+        resetGame();
+    } else if (kind == ConfirmKind::Quit) {
         window_.close();
     }
+}
+
+void GameViewer::cancelDialog() { confirmKind_ = ConfirmKind::None; }
+
+void GameViewer::handleConfirmKey(sf::Keyboard::Key key) {
+    if (key == sf::Keyboard::Key::Escape || key == sf::Keyboard::Key::N) {
+        cancelDialog();
+        return;
+    }
+    if (key == sf::Keyboard::Key::Enter || key == sf::Keyboard::Key::Y) {
+        confirmDialog();
+        return;
+    }
+    if (confirmKind_ == ConfirmKind::Restart && key == sf::Keyboard::Key::R) {
+        confirmDialog();
+        return;
+    }
+    if (confirmKind_ == ConfirmKind::Quit && key == sf::Keyboard::Key::Q) {
+        confirmDialog();
+    }
+}
+
+void GameViewer::handleConfirmClick(sf::Vector2f mousePos) {
+    const ConfirmLayout cl = computeConfirmLayout();
+    if (pointInRect(mousePos, cl.confirm)) {
+        confirmDialog();
+    } else if (pointInRect(mousePos, cl.cancel) || !pointInRect(mousePos, cl.card)) {
+        cancelDialog();
+    }
+}
+
+GameViewer::ConfirmLayout GameViewer::computeConfirmLayout() const {
+    ConfirmLayout cl{};
+    const auto winSize = window_.getSize();
+    const float w = static_cast<float>(winSize.x);
+    const float h = static_cast<float>(winSize.y);
+    const float cardW = 420.f;
+    const float cardH = 232.f;
+    const float cx = (w - cardW) * 0.5f;
+    const float cy = (h - cardH) * 0.5f;
+    cl.card = {{cx, cy}, {cardW, cardH}};
+    const float padLR = 28.f;
+    const float btnW = (cardW - 2.f * padLR - 12.f) * 0.5f;
+    const float btnH = 46.f;
+    const float btnY = cy + cardH - 28.f - btnH;
+    cl.cancel = {{cx + padLR, btnY}, {btnW, btnH}};
+    cl.confirm = {{cx + padLR + btnW + 12.f, btnY}, {btnW, btnH}};
+    return cl;
 }
 
 void GameViewer::update(float dt) {
@@ -625,7 +707,7 @@ void GameViewer::update(float dt) {
         gameOverAnim_ = std::min(1.f, gameOverAnim_ + dt / 0.26f);
     }
 
-    if (phase_ == Phase::AiThinking && aiMovePending_) {
+    if (confirmKind_ == ConfirmKind::None && phase_ == Phase::AiThinking && aiMovePending_) {
         aiDelay_ -= dt;
         if (aiDelay_ <= 0.f) {
             playAiMove();
@@ -798,13 +880,13 @@ void GameViewer::resetGame() {
 
 std::optional<Position> GameViewer::cellFromPoint(sf::Vector2f point) const {
     const Layout layout = computeLayout();
-    if (point.x < layout.boardX + COORD_BAND || point.y < layout.boardY ||
-        point.x >= layout.boardX + COORD_BAND + layout.field ||
-        point.y >= layout.boardY + layout.field) {
+    if (point.x < layout.fieldX || point.y < layout.fieldY ||
+        point.x >= layout.fieldX + layout.field ||
+        point.y >= layout.fieldY + layout.field) {
         return std::nullopt;
     }
-    const unsigned int col = static_cast<unsigned int>((point.x - layout.boardX - COORD_BAND) / layout.cell);
-    const unsigned int row = static_cast<unsigned int>((point.y - layout.boardY) / layout.cell);
+    const unsigned int col = static_cast<unsigned int>((point.x - layout.fieldX) / layout.cell);
+    const unsigned int row = static_cast<unsigned int>((point.y - layout.fieldY) / layout.cell);
     if (row >= BOARD_SIZE || col >= BOARD_SIZE) {
         return std::nullopt;
     }
@@ -813,8 +895,8 @@ std::optional<Position> GameViewer::cellFromPoint(sf::Vector2f point) const {
 
 sf::Vector2f GameViewer::cellCenter(const Position &pos, const Layout &layout) {
     return {
-        layout.boardX + COORD_BAND + (static_cast<float>(pos.getCol()) + 0.5f) * layout.cell,
-        layout.boardY + (static_cast<float>(pos.getRow()) + 0.5f) * layout.cell
+        layout.fieldX + (static_cast<float>(pos.getCol()) + 0.5f) * layout.cell,
+        layout.fieldY + (static_cast<float>(pos.getRow()) + 0.5f) * layout.cell
     };
 }
 
@@ -854,26 +936,34 @@ GameViewer::Layout GameViewer::computeLayout() const {
     const auto winSize = window_.getSize();
     const float w = static_cast<float>(winSize.x);
     const float h = static_cast<float>(winSize.y);
+    const float shortest = std::min(w, h);
 
     Layout l;
-    l.pad = std::round(clampf(28.f, h * 0.058f, 56.f));
-    l.side = std::round(clampf(300.f, w * 0.30f, 380.f));
-    l.gap = std::round(clampf(24.f, w * 0.032f, 44.f));
-    const float avail = std::min(h - 2.f * l.pad, w - 2.f * l.pad - l.gap - l.side);
-    float cell = std::floor((avail - 2.f * COORD_BAND) / 8.f);
-    cell = clampf(cell, 44.f, 104.f);
+    l.pad = std::round(clampf(shortest * 0.018f, 10.f, 20.f));
+    l.gap = std::round(clampf(shortest * 0.014f, 8.f, 16.f));
+    l.side = std::round(clampf(w * 0.22f, 220.f, 300.f));
+
+    const float innerH = std::max(0.f, h - 2.f * l.pad);
+    const float innerW = std::max(0.f, w - 2.f * l.pad);
+    float plinth = std::min(innerH, std::max(0.f, innerW - l.gap - l.side));
+
+    float cell = (plinth - 2.f * COORD_BAND) / 8.f;
+    cell = std::max(cell, 44.f);
     l.cell = cell;
     l.field = cell * 8.f;
     l.plinth = l.field + 2.f * COORD_BAND;
 
-    const float totalWidth = l.plinth + l.gap + l.side;
-    const float left = (w - totalWidth) * 0.5f;
+    const float totalW = l.plinth + l.gap + l.side;
+    const float left = (w - totalW) * 0.5f;
     const float top = (h - l.plinth) * 0.5f;
     l.boardX = left;
     l.boardY = top;
-    l.sidebarX = left + l.plinth + l.gap;
+    l.fieldX = l.boardX + COORD_BAND;
+    l.fieldY = l.boardY + COORD_BAND;
+    l.sidebarX = l.boardX + l.plinth + l.gap;
     l.sidebarY = top;
-    l.fontScale = clampf(cell / 78.f, 0.62f, 1.45f);
+    l.sidebarH = l.plinth;
+    l.fontScale = clampf(l.cell / 78.f, 0.62f, 2.0f);
     return l;
 }
 
@@ -1059,7 +1149,7 @@ void GameViewer::drawBoardPlinth(const Layout &layout) {
             auto rb = rank.getLocalBounds();
             rank.setPosition({
                 layout.boardX + (COORD_BAND - rb.size.x) * 0.5f - rb.position.x,
-                layout.boardY + static_cast<float>(i) * layout.cell + (layout.cell - rb.size.y) * 0.5f
+                layout.fieldY + static_cast<float>(i) * layout.cell + (layout.cell - rb.size.y) * 0.5f
             });
             window_.draw(rank);
 
@@ -1067,15 +1157,15 @@ void GameViewer::drawBoardPlinth(const Layout &layout) {
             file.setFillColor(kMuted);
             auto fb = file.getLocalBounds();
             file.setPosition({
-                layout.boardX + COORD_BAND + static_cast<float>(i) * layout.cell +
+                layout.fieldX + static_cast<float>(i) * layout.cell +
                 (layout.cell - fb.size.x) * 0.5f - fb.position.x,
-                layout.boardY + layout.field + (COORD_BAND - fb.size.y) * 0.5f
+                layout.fieldY + layout.field + (COORD_BAND - fb.size.y) * 0.5f
             });
             window_.draw(file);
         }
     }
 
-    const sf::Vector2f fieldPos(layout.boardX + COORD_BAND, layout.boardY);
+    const sf::Vector2f fieldPos(layout.fieldX, layout.fieldY);
     for (int row = 0; row < BOARD_SIZE; ++row) {
         for (int col = 0; col < BOARD_SIZE; ++col) {
             sf::RectangleShape square({layout.cell, layout.cell});
@@ -1202,40 +1292,48 @@ void GameViewer::drawDiscs(const Layout &layout) {
     }
 }
 
-// ----------------------------------------------------------------- sidebar --
 void GameViewer::drawSidebar(const Layout &layout) {
     const float fs = layout.fontScale;
     auto sz = [&](float base) { return std::max(8u, static_cast<unsigned int>(std::round(base * fs))); };
 
-    const float padTop = 28.f;
-    const float padLR = 26.f;
+    const float padTop = 20.f * fs;
+    const float padLR = clampf(18.f * fs, 14.f, layout.side * 0.10f);
     const float sbW = layout.side;
+    const float sbH = layout.sidebarH;
     float x = layout.sidebarX + padLR;
     float y = layout.sidebarY + padTop;
-    const float innerW = sbW - 2.f * padLR;
+    const float innerW = std::max(8.f, sbW - 2.f * padLR);
+    const float rowH = 58.f * fs;
+    const float rowGap = 12.f * fs;
+    const float discSize = 26.f * fs;
+    const float rowPad = 16.f * fs;
+    const float shortcutH = 22.f * fs;
+    const float shortcutGap = 26.f * fs;
 
     if (!fontsLoaded_) {
-        drawRoundedRect(window_, {layout.sidebarX, layout.sidebarY}, {sbW, layout.plinth}, layout.cell * 0.28f,
+        drawRoundedRect(window_, {layout.sidebarX, layout.sidebarY}, {sbW, sbH}, layout.cell * 0.28f,
                         kSurface);
         return;
     }
 
-    drawSoftShadow(window_, {layout.sidebarX, layout.sidebarY}, {sbW, layout.plinth}, layout.cell * 0.28f, 8.f,
+    drawSoftShadow(window_, {layout.sidebarX, layout.sidebarY}, {sbW, sbH}, layout.cell * 0.28f, 8.f,
                    16.f, 0.14f);
-    drawRoundedRect(window_, {layout.sidebarX, layout.sidebarY}, {sbW, layout.plinth}, layout.cell * 0.28f,
+    drawRoundedRect(window_, {layout.sidebarX, layout.sidebarY}, {sbW, sbH}, layout.cell * 0.28f,
                     kSurface);
 
     sf::Text wordmark(fontBold_, "OTHELLO", sz(25));
     wordmark.setFillColor(kInk);
     wordmark.setLetterSpacing(3.4f);
-    wordmark.setPosition({x, y});
+    auto wb = wordmark.getLocalBounds();
+    wordmark.setPosition({x + (innerW - wb.size.x) * 0.5f - wb.position.x, y});
     window_.draw(wordmark);
     y += sz(25) * 1.18f;
 
     sf::Text tagline(font_, "TURN THE BOARD", sz(10));
     tagline.setFillColor(kMuted);
     tagline.setLetterSpacing(2.4f);
-    tagline.setPosition({x, y});
+    auto tb = tagline.getLocalBounds();
+    tagline.setPosition({x + (innerW - tb.size.x) * 0.5f - tb.position.x, y});
     window_.draw(tagline);
     y += sz(10) * 1.9f;
 
@@ -1243,7 +1341,7 @@ void GameViewer::drawSidebar(const Layout &layout) {
     divider.setPosition({x, y});
     divider.setFillColor(kHairline);
     window_.draw(divider);
-    y += 26.f;
+    y += 18.f * fs + 8.f;
 
     // -------------------------------------------------------------- scores --
     const int blackCount = BoardHelper::countPlayerPieces(board_, PLAYER_BLACK);
@@ -1252,116 +1350,45 @@ void GameViewer::drawSidebar(const Layout &layout) {
 
     auto drawScoreRow = [&](float rowY, char player, int count, const std::string &name, bool isActive) {
         const bool selected = (currentPlayer_ == player) && phase_ != Phase::GameOver;
-        const float rowH = 58.f;
         if (selected) {
-            drawRoundedRect(window_, {x, rowY}, {innerW, rowH}, 14.f, kSurfaceRaised,
+            drawRoundedRect(window_, {x, rowY}, {innerW, rowH}, 14.f * fs, kSurfaceRaised,
                             withAlpha(kClay, 0.30f * (isActive ? turnAnim_ : 1.f)), 1.f);
         } else {
-            drawRoundedRect(window_, {x, rowY}, {innerW, rowH}, 14.f, kSunken);
+            drawRoundedRect(window_, {x, rowY}, {innerW, rowH}, 14.f * fs, kSunken);
         }
         const sf::Texture &tex = player == PLAYER_BLACK ? discDarkTex_ : discLightTex_;
         sf::Sprite disc(tex);
         disc.setOrigin({static_cast<float>(kDiscTexSize) * 0.5f, static_cast<float>(kDiscTexSize) * 0.5f});
-        const float discSize = 26.f;
         disc.setScale({discSize / kDiscTexSize, discSize / kDiscTexSize});
-        disc.setPosition({x + 16.f + discSize * 0.5f, rowY + rowH * 0.5f});
+        disc.setPosition({x + rowPad + discSize * 0.5f, rowY + rowH * 0.5f});
         window_.draw(disc);
 
         sf::Text nameText(fontBold_, name, sz(13));
         nameText.setFillColor(selected ? kInk : kBody);
-        nameText.setPosition({x + 16.f + discSize + 12.f, rowY + 11.f});
+        auto nb = nameText.getLocalBounds();
+        nameText.setPosition({x + rowPad + discSize + 12.f * fs,
+                              rowY + (rowH - nb.size.y) * 0.5f - nb.position.y});
         window_.draw(nameText);
-
-        sf::Text roleText(font_, player == PLAYER_BLACK ? "DARK" : "LIGHT", sz(10));
-        roleText.setFillColor(kMuted);
-        roleText.setLetterSpacing(1.8f);
-        roleText.setPosition({x + 16.f + discSize + 12.f, rowY + 30.f});
-        window_.draw(roleText);
 
         sf::Text score(fontBold_, std::to_string(count), sz(32));
         score.setFillColor(selected ? kInk : kBody);
         auto scb = score.getLocalBounds();
-        score.setPosition({x + innerW - 16.f - scb.size.x - scb.position.x, rowY + rowH * 0.5f - sz(32) * 0.62f});
+        score.setPosition({x + innerW - rowPad - scb.size.x - scb.position.x,
+                           rowY + rowH * 0.5f - sz(32) * 0.62f});
         window_.draw(score);
     };
 
     const bool darkIsCurrent = currentPlayer_ == PLAYER_BLACK;
     drawScoreRow(y, PLAYER_BLACK, blackCount, humanPlayer_ == PLAYER_BLACK ? humanName : "Engine", darkIsCurrent);
-    y += 58.f + 12.f;
+    y += rowH + rowGap;
     drawScoreRow(y, PLAYER_WHITE, whiteCount, humanPlayer_ == PLAYER_WHITE ? humanName : "Engine", !darkIsCurrent);
-    y += 58.f + 12.f;
+    y += rowH + 20.f * fs;
 
-    const int total = std::max(1, blackCount + whiteCount);
-    sf::RectangleShape barBg({innerW, 6.f});
-    barBg.setPosition({x, y});
-    barBg.setFillColor(kHairline);
-    window_.draw(barBg);
-    sf::RectangleShape barFill({innerW * static_cast<float>(blackCount) / static_cast<float>(total), 6.f});
-    barFill.setPosition({x, y});
-    barFill.setFillColor(kDiscDarkMid);
-    window_.draw(barFill);
-    y += 6.f + 26.f;
-
-    // --------------------------------------------------------- turn state --
-    if (phase_ == Phase::AiThinking) {
-        const float blockH = 68.f;
-        drawRoundedRect(window_, {x, y}, {innerW, blockH}, 14.f, kSunken);
-        sf::Sprite disc(discLightTex_);
-        disc.setOrigin({static_cast<float>(kDiscTexSize) * 0.5f, static_cast<float>(kDiscTexSize) * 0.5f});
-        disc.setScale({18.f / kDiscTexSize, 18.f / kDiscTexSize});
-        disc.setPosition({x + 16.f + 9.f, y + 27.f});
-        if (aiPlayer_ == PLAYER_BLACK) {
-            disc.setTexture(discDarkTex_);
-        }
-        window_.draw(disc);
-
-        sf::Text title(fontBold_, "Engine thinking", sz(15));
-        title.setFillColor(kInk);
-        title.setPosition({x + 16.f + 18.f + 11.f, y + 15.f});
-        window_.draw(title);
-
-        sf::Text depth(font_, "depth " + std::to_string(aiDepth_), sz(11));
-        depth.setFillColor(kClayText);
-        auto db = depth.getLocalBounds();
-        depth.setPosition({x + innerW - 16.f - db.size.x - db.position.x, y + 18.f});
-        window_.draw(depth);
-
-        const float trackY = y + blockH - 16.f - 4.f;
-        sf::RectangleShape track({innerW - 32.f, 4.f});
-        track.setPosition({x + 16.f, trackY});
-        track.setFillColor(kHairline);
-        window_.draw(track);
-        const float sweepW = (innerW - 32.f) * 0.38f;
-        const float phaseT = std::fmod(pulseTime_, 1.2f) / 1.2f;
-        const float sweepX = -sweepW + phaseT * (innerW - 32.f + sweepW);
-        sf::RectangleShape fill({sweepW, 4.f});
-        fill.setPosition({x + 16.f + clampf(sweepX, 0.f, innerW - 32.f - sweepW), trackY});
-        fill.setFillColor(kClay);
-        window_.draw(fill);
-        y += blockH + 26.f;
-    } else if (phase_ == Phase::Playing && currentPlayer_ == humanPlayer_) {
-        const float blockH = 56.f;
-        drawRoundedRect(window_, {x, y}, {innerW, blockH}, 14.f, withAlpha(kClay, 0.10f),
-                        withAlpha(kClay, 0.24f), -1.f);
-        sf::Sprite disc(humanPlayer_ == PLAYER_BLACK ? discDarkTex_ : discLightTex_);
-        disc.setOrigin({static_cast<float>(kDiscTexSize) * 0.5f, static_cast<float>(kDiscTexSize) * 0.5f});
-        disc.setScale({18.f / kDiscTexSize, 18.f / kDiscTexSize});
-        disc.setPosition({x + 16.f + 9.f, y + blockH * 0.5f});
-        window_.draw(disc);
-
-        sf::Text title(fontBold_, "Your move", sz(15));
-        title.setFillColor(kInk);
-        title.setPosition({x + 16.f + 18.f + 11.f, y + (blockH - sz(15)) * 0.5f - 2.f});
-        window_.draw(title);
-
-        const auto legal = BoardHelper::getAllPossibleMoves(board_, humanPlayer_);
-        sf::Text legalText(font_, std::to_string(legal.size()) + " legal", sz(11));
-        legalText.setFillColor(kClayText);
-        auto lb = legalText.getLocalBounds();
-        legalText.setPosition({x + innerW - 16.f - lb.size.x - lb.position.x, y + (blockH - sz(11)) * 0.5f});
-        window_.draw(legalText);
-        y += blockH + 26.f;
-    }
+    sf::RectangleShape statusRule({innerW, 1.f});
+    statusRule.setPosition({x, y});
+    statusRule.setFillColor(kHairline);
+    window_.draw(statusRule);
+    y += 18.f * fs;
 
     // -------------------------------------------------------------- status --
     sf::Text statusLabel(font_, "STATUS", sz(10));
@@ -1381,11 +1408,11 @@ void GameViewer::drawSidebar(const Layout &layout) {
     }
 
     // ------------------------------------------------------------- footer --
-    // Bottom-anchored like a flex spacer, but never overlaps the content
-    // above it — if the status text runs long on a short window, the footer
-    // is pushed down instead of colliding with it.
-    const float anchoredFooterY = layout.sidebarY + layout.plinth - padTop - 1.f - 10.f - 3.f * 26.f;
-    const float footerY = std::max(y + 14.f, anchoredFooterY);
+    // Bottom-anchored like a flex spacer, but never overlaps the content above it
+    // if the status text runs long on a short window, the footer is pushed down instead of colliding with it.
+    const float anchoredFooterY = layout.sidebarY + layout.sidebarH - padTop - 1.f - 10.f * fs - 3.f * shortcutGap;
+    const float footerY = std::max(y + 14.f * fs, anchoredFooterY);
+
     sf::RectangleShape divider2({innerW, 1.f});
     divider2.setPosition({x, footerY});
     divider2.setFillColor(kHairline);
@@ -1399,156 +1426,213 @@ void GameViewer::drawSidebar(const Layout &layout) {
         {"R", "New game"},
         {"Esc", "Quit"},
     };
-    float fy = footerY + 16.f;
+    float fy = footerY + 16.f * fs;
+
     for (const auto &sc: shortcuts) {
         sf::Text key(font_, sc.key, sz(11));
         key.setFillColor(kBody);
         auto kb = key.getLocalBounds();
-        const float chipW = std::max(24.f, kb.size.x + 18.f);
-        drawRoundedRect(window_, {x, fy}, {chipW, 22.f}, 6.f, kKeycapBg);
+        const float chipW = std::max(24.f * fs, kb.size.x + 18.f * fs);
+
+        drawRoundedRect(window_, {x, fy}, {chipW, shortcutH}, 6.f * fs, kKeycapBg);
+
         sf::RectangleShape edge({chipW, 2.f});
-        edge.setPosition({x, fy + 20.f});
+        edge.setPosition({x, fy + shortcutH - 2.f});
         edge.setFillColor(kKeycapEdge);
         window_.draw(edge);
-        key.setPosition({x + (chipW - kb.size.x) * 0.5f - kb.position.x, fy + 4.f});
+
+        key.setPosition({x + (chipW - kb.size.x) * 0.5f - kb.position.x, fy + 4.f * fs});
         window_.draw(key);
 
         sf::Text label(font_, sc.label, sz(12));
         label.setFillColor(kEyebrow);
-        label.setPosition({x + chipW + 10.f, fy + 4.f});
+        label.setPosition({x + chipW + 10.f * fs, fy + 4.f * fs});
         window_.draw(label);
-        fy += 26.f;
+        fy += shortcutGap;
     }
 }
 
-// -------------------------------------------------------------- game over --
 void GameViewer::drawGameOverOverlay() {
     const auto winSize = window_.getSize();
     const float w = static_cast<float>(winSize.x);
     const float h = static_cast<float>(winSize.y);
-    const float scrimAlpha = clampf(gameOverAnim_, 0.f, 1.f) * (210.f / 255.f);
+    const float cardAlpha = clampf(gameOverAnim_ / 0.6f, 0.f, 1.f);
     sf::RectangleShape veil({w, h});
-    veil.setFillColor(withAlpha(sf::Color(231, 225, 216), scrimAlpha));
+    veil.setFillColor(withAlpha(sf::Color(231, 225, 216), cardAlpha * (210.f / 255.f)));
     window_.draw(veil);
+
+    const GameOverLayout gl = computeGameOverLayout();
+    const float lift = (1.f - easeOutBack(clampf(gameOverAnim_, 0.f, 1.f))) * 10.f;
+    const sf::Vector2f cardPos = gl.card.position + sf::Vector2f(0.f, lift);
+    const sf::Vector2f quitPos = gl.quit.position + sf::Vector2f(0.f, lift);
+    const sf::Vector2f playPos = gl.playAgain.position + sf::Vector2f(0.f, lift);
+
+    drawSoftShadow(window_, cardPos, gl.card.size, 22.f, 10.f, 24.f, 0.22f * cardAlpha);
+    drawRoundedRect(window_, cardPos, gl.card.size, 22.f, withAlpha(sf::Color(249, 246, 241), cardAlpha));
 
     if (!fontsLoaded_) {
         return;
     }
 
-    const GameOverLayout gl = computeGameOverLayout();
-    const float lift = (1.f - easeOutBack(clampf(gameOverAnim_, 0.f, 1.f))) * 14.f;
-    const sf::Vector2f cardPos = gl.card.position + sf::Vector2f(0.f, lift);
-    const float cardAlpha = clampf(gameOverAnim_ / 0.6f, 0.f, 1.f);
-
-    drawSoftShadow(window_, cardPos, gl.card.size, 24.f, 12.f, 28.f, 0.24f * cardAlpha);
-    drawRoundedRect(window_, cardPos, gl.card.size, 24.f, withAlpha(sf::Color(249, 246, 241), cardAlpha));
-
-    float y = cardPos.y + 36.f;
     const float cx = cardPos.x + gl.card.size.x * 0.5f;
+    float y = cardPos.y + 28.f;
 
-    sf::Text finalLabel(font_, "FINAL", 10);
-    finalLabel.setFillColor(withAlpha(kMuted, cardAlpha));
-    finalLabel.setLetterSpacing(2.6f);
-    auto fb = finalLabel.getLocalBounds();
-    finalLabel.setPosition({cx - fb.size.x * 0.5f, y});
-    window_.draw(finalLabel);
-    y += 30.f;
+    sf::Text eyebrow(font_, "FINAL", 10);
+    eyebrow.setFillColor(withAlpha(kMuted, cardAlpha));
+    eyebrow.setLetterSpacing(2.6f);
+    auto eb = eyebrow.getLocalBounds();
+    eyebrow.setPosition({cx - eb.size.x * 0.5f - eb.position.x, y});
+    window_.draw(eyebrow);
+    y += 26.f;
 
-    sf::Text headline(fontBold_, resultHeadline(), 30);
-    headline.setFillColor(withAlpha(kInk, cardAlpha));
-    headline.setLetterSpacing(1.6f);
-    auto hb = headline.getLocalBounds();
-    headline.setPosition({cx - hb.size.x * 0.5f, y});
-    window_.draw(headline);
-    y += 56.f;
+    sf::Text title(fontBold_, resultHeadline(), 20);
+    title.setFillColor(withAlpha(kInk, cardAlpha));
+    title.setLetterSpacing(0.6f);
+    auto tb = title.getLocalBounds();
+    title.setPosition({cx - tb.size.x * 0.5f - tb.position.x, y});
+    window_.draw(title);
+    y += 40.f;
 
     const int blackCount = BoardHelper::countPlayerPieces(board_, PLAYER_BLACK);
     const int whiteCount = BoardHelper::countPlayerPieces(board_, PLAYER_WHITE);
     const sf::Color darkColor = blackCount >= whiteCount ? kInk : kMuted;
     const sf::Color lightColor = whiteCount >= blackCount ? kInk : kMuted;
 
-    sf::Text darkScore(fontBold_, std::to_string(blackCount), 44);
+    sf::Text darkScore(fontBold_, std::to_string(blackCount), 32);
     darkScore.setFillColor(withAlpha(darkColor, cardAlpha));
-    sf::Text lightScore(fontBold_, std::to_string(whiteCount), 44);
+    sf::Text lightScore(fontBold_, std::to_string(whiteCount), 32);
     lightScore.setFillColor(withAlpha(lightColor, cardAlpha));
-    sf::Text dot(font_, ".", 20);
-    dot.setFillColor(withAlpha(kMuted, cardAlpha));
+    sf::Text dash(font_, "-", 16);
+    dash.setFillColor(withAlpha(kMuted, cardAlpha));
 
-    const float discSize = 26.f;
-    const float groupGap = 26.f;
+    const float discSize = 22.f;
     const auto db = darkScore.getLocalBounds();
     const auto lb = lightScore.getLocalBounds();
-    const float leftW = discSize + 12.f + db.size.x;
-    const float rightW = lb.size.x + 12.f + discSize;
-    const float totalW = leftW + groupGap + 20.f + groupGap + rightW;
+    const auto dashb = dash.getLocalBounds();
+    const float leftW = discSize + 10.f + db.size.x;
+    const float rightW = lb.size.x + 10.f + discSize;
+    const float totalW = leftW + 16.f + dashb.size.x + 16.f + rightW;
     float gx = cx - totalW * 0.5f;
+    const float scoreMidY = y + 18.f;
+    const std::uint8_t discA = static_cast<std::uint8_t>(cardAlpha * 255.f);
 
     sf::Sprite darkDisc(discDarkTex_);
     darkDisc.setOrigin({static_cast<float>(kDiscTexSize) * 0.5f, static_cast<float>(kDiscTexSize) * 0.5f});
     darkDisc.setScale({discSize / kDiscTexSize, discSize / kDiscTexSize});
-    darkDisc.setPosition({gx + discSize * 0.5f, y + 22.f});
-    darkDisc.setColor(sf::Color(255, 255, 255, static_cast<std::uint8_t>(cardAlpha * 255.f)));
+    darkDisc.setPosition({gx + discSize * 0.5f, scoreMidY});
+    darkDisc.setColor(sf::Color(255, 255, 255, discA));
     window_.draw(darkDisc);
-    darkScore.setPosition({gx + discSize + 12.f, y});
+    darkScore.setPosition({
+        gx + discSize + 10.f,
+        scoreMidY - db.size.y * 0.5f - db.position.y
+    });
     window_.draw(darkScore);
-    gx += leftW + groupGap;
+    gx += leftW + 16.f;
 
-    dot.setPosition({gx, y + 8.f});
-    window_.draw(dot);
-    gx += 20.f + groupGap;
+    dash.setPosition({gx, scoreMidY - dashb.size.y * 0.5f - dashb.position.y});
+    window_.draw(dash);
+    gx += dashb.size.x + 16.f;
 
-    lightScore.setPosition({gx, y});
+    lightScore.setPosition({gx, scoreMidY - lb.size.y * 0.5f - lb.position.y});
     window_.draw(lightScore);
     sf::Sprite lightDisc(discLightTex_);
     lightDisc.setOrigin({static_cast<float>(kDiscTexSize) * 0.5f, static_cast<float>(kDiscTexSize) * 0.5f});
     lightDisc.setScale({discSize / kDiscTexSize, discSize / kDiscTexSize});
-    lightDisc.setPosition({gx + lb.size.x + 12.f + discSize * 0.5f, y + 22.f});
-    lightDisc.setColor(sf::Color(255, 255, 255, static_cast<std::uint8_t>(cardAlpha * 255.f)));
+    lightDisc.setPosition({gx + lb.size.x + 10.f + discSize * 0.5f, scoreMidY});
+    lightDisc.setColor(sf::Color(255, 255, 255, discA));
     window_.draw(lightDisc);
 
-    drawRoundedRect(window_, gl.playAgain.position + sf::Vector2f(0.f, lift), gl.playAgain.size, 13.f,
-                    withAlpha(kClay, cardAlpha));
-    sf::Text playLabel(fontBold_, "Play again", 14);
-    playLabel.setFillColor(withAlpha(sf::Color(255, 247, 241), cardAlpha));
-    auto plb = playLabel.getLocalBounds();
-    const float chipW = 34.f;
-    const float groupW2 = plb.size.x + 12.f + chipW;
-    float px = gl.playAgain.position.x + (gl.playAgain.size.x - groupW2) * 0.5f;
-    const float py = gl.playAgain.position.y + lift + (gl.playAgain.size.y - plb.size.y) * 0.5f - plb.position.y;
-    playLabel.setPosition({px, py});
-    window_.draw(playLabel);
-    px += plb.size.x + 12.f;
-    drawRoundedRect(window_, {px, gl.playAgain.position.y + lift + gl.playAgain.size.y * 0.5f - 9.f},
-                    {chipW, 18.f}, 5.f, sf::Color(255, 255, 255, static_cast<std::uint8_t>(51 * cardAlpha)));
-    sf::Text rKey(font_, "R", 10);
-    rKey.setFillColor(withAlpha(sf::Color(255, 247, 241), cardAlpha));
-    auto rkb = rKey.getLocalBounds();
-    rKey.setPosition({
-        px + (chipW - rkb.size.x) * 0.5f, gl.playAgain.position.y + lift + gl.playAgain.size.y * 0.5f - 9.f + 3.f
-    });
-    window_.draw(rKey);
-
-    drawRoundedRect(window_, gl.quit.position + sf::Vector2f(0.f, lift), gl.quit.size, 13.f,
-                    sf::Color::Transparent, withAlpha(sf::Color(223, 216, 203), cardAlpha), 1.f);
+    drawRoundedRect(window_, quitPos, gl.quit.size, 13.f, withAlpha(kSunken, cardAlpha),
+                    withAlpha(kHairline, cardAlpha), 1.f);
     sf::Text quitLabel(font_, "Quit", 13);
     quitLabel.setFillColor(withAlpha(kEyebrow, cardAlpha));
     auto qlb = quitLabel.getLocalBounds();
-    const float chipW2 = 34.f;
-    const float groupW3 = qlb.size.x + 12.f + chipW2;
-    float qx = gl.quit.position.x + (gl.quit.size.x - groupW3) * 0.5f;
-    const float qy = gl.quit.position.y + lift + (gl.quit.size.y - qlb.size.y) * 0.5f - qlb.position.y;
-    quitLabel.setPosition({qx, qy});
-    window_.draw(quitLabel);
-    qx += qlb.size.x + 12.f;
-    drawRoundedRect(window_, {qx, gl.quit.position.y + lift + gl.quit.size.y * 0.5f - 9.f}, {chipW2, 18.f}, 5.f,
-                    withAlpha(kKeycapBg, cardAlpha));
-    sf::Text escKey(font_, "Esc", 10);
-    escKey.setFillColor(withAlpha(kEyebrow, cardAlpha));
-    auto ekb = escKey.getLocalBounds();
-    escKey.setPosition({
-        qx + (chipW2 - ekb.size.x) * 0.5f, gl.quit.position.y + lift + gl.quit.size.y * 0.5f - 9.f + 3.f
+    quitLabel.setPosition({
+        quitPos.x + (gl.quit.size.x - qlb.size.x) * 0.5f - qlb.position.x,
+        quitPos.y + (gl.quit.size.y - qlb.size.y) * 0.5f - qlb.position.y
     });
-    window_.draw(escKey);
+    window_.draw(quitLabel);
+
+    drawRoundedRect(window_, playPos, gl.playAgain.size, 13.f, withAlpha(kClay, cardAlpha));
+    sf::Text playLabel(fontBold_, "Restart", 14);
+    playLabel.setFillColor(withAlpha(sf::Color(255, 247, 241), cardAlpha));
+    auto plb = playLabel.getLocalBounds();
+    playLabel.setPosition({
+        playPos.x + (gl.playAgain.size.x - plb.size.x) * 0.5f - plb.position.x,
+        playPos.y + (gl.playAgain.size.y - plb.size.y) * 0.5f - plb.position.y
+    });
+    window_.draw(playLabel);
+}
+
+void GameViewer::drawConfirmDialog() {
+    const auto winSize = window_.getSize();
+    const float w = static_cast<float>(winSize.x);
+    const float h = static_cast<float>(winSize.y);
+    sf::RectangleShape veil({w, h});
+    veil.setFillColor(withAlpha(sf::Color(231, 225, 216), 210.f / 255.f));
+    window_.draw(veil);
+
+    const ConfirmLayout cl = computeConfirmLayout();
+    drawSoftShadow(window_, cl.card.position, cl.card.size, 22.f, 10.f, 24.f, 0.22f);
+    drawRoundedRect(window_, cl.card.position, cl.card.size, 22.f, sf::Color(249, 246, 241));
+
+    if (!fontsLoaded_) {
+        return;
+    }
+
+    const bool quitting = confirmKind_ == ConfirmKind::Quit;
+    const float cx = cl.card.position.x + cl.card.size.x * 0.5f;
+    float y = cl.card.position.y + 28.f;
+
+    sf::Text eyebrow(font_, "CONFIRM", 10);
+    eyebrow.setFillColor(kMuted);
+    eyebrow.setLetterSpacing(2.6f);
+    auto eb = eyebrow.getLocalBounds();
+    eyebrow.setPosition({cx - eb.size.x * 0.5f - eb.position.x, y});
+    window_.draw(eyebrow);
+    y += 26.f;
+
+    sf::Text title(fontBold_, quitting ? "LEAVE THE TABLE?" : "START A NEW GAME?", 20);
+    title.setFillColor(kInk);
+    title.setLetterSpacing(0.6f);
+    auto tb = title.getLocalBounds();
+    title.setPosition({cx - tb.size.x * 0.5f - tb.position.x, y});
+    window_.draw(title);
+    y += 36.f;
+
+    const char *body = quitting
+                           ? "You can come back any time. This window will close."
+                           : "The current board will be cleared. This cannot be undone.";
+    const auto lines = wrapText(font_, body, 13, cl.card.size.x - 64.f);
+    for (const auto &line: lines) {
+        sf::Text lineText(font_, line, 13);
+        lineText.setFillColor(kBody);
+        auto lb = lineText.getLocalBounds();
+        lineText.setPosition({cx - lb.size.x * 0.5f - lb.position.x, y});
+        window_.draw(lineText);
+        y += 20.f;
+    }
+
+    drawRoundedRect(window_, cl.cancel.position, cl.cancel.size, 13.f, kSunken,
+                    kHairline, 1.f);
+    sf::Text cancelLabel(font_, "Cancel", 13);
+    cancelLabel.setFillColor(kEyebrow);
+    auto clb = cancelLabel.getLocalBounds();
+    cancelLabel.setPosition({
+        cl.cancel.position.x + (cl.cancel.size.x - clb.size.x) * 0.5f - clb.position.x,
+        cl.cancel.position.y + (cl.cancel.size.y - clb.size.y) * 0.5f - clb.position.y
+    });
+    window_.draw(cancelLabel);
+
+    drawRoundedRect(window_, cl.confirm.position, cl.confirm.size, 13.f, kClay);
+    sf::Text confirmLabel(fontBold_, quitting ? "Quit" : "Restart", 14);
+    confirmLabel.setFillColor(sf::Color(255, 247, 241));
+    auto cfb = confirmLabel.getLocalBounds();
+    confirmLabel.setPosition({
+        cl.confirm.position.x + (cl.confirm.size.x - cfb.size.x) * 0.5f - cfb.position.x,
+        cl.confirm.position.y + (cl.confirm.size.y - cfb.size.y) * 0.5f - cfb.position.y
+    });
+    window_.draw(confirmLabel);
 }
 
 void GameViewer::render() {
@@ -1561,6 +1645,9 @@ void GameViewer::render() {
         if (phase_ == Phase::GameOver) {
             drawGameOverOverlay();
         }
+    }
+    if (confirmKind_ != ConfirmKind::None) {
+        drawConfirmDialog();
     }
     window_.display();
 }
