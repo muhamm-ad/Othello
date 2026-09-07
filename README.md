@@ -2,6 +2,10 @@
 
 This project develops an AI to play Othello using the Minimax algorithm with Alpha-Beta pruning. The objective is to capture as many opponent's pieces as possible. Learn the rules on [Wikipedia](https://en.wikipedia.org/wiki/Reversi).
 
+<p align="center">
+  <img src="othello.gif" alt="othello demo" />
+</p>
+
 ## Interface
 
 The game ships with an **SFML** graphical UI: choose your difficulty and piece on the setup screen, click highlighted squares to place discs, watch the AI respond, and restart from the end-of-match overlay.
